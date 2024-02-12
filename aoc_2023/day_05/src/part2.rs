@@ -35,7 +35,7 @@ impl Translator {
 
     fn translate(&self, number: &u64) -> u64 {
         for range in &self.ranges {
-            if range.source_start <= *number && range.source_start + range.length >= *number {
+            if range.source_start <= *number && range.source_start + range.length > *number {
                 return range.dest_start + (*number - range.source_start);
             }
         }
@@ -54,13 +54,72 @@ fn read_input(filename: &str) -> Vec<String> {
 }
 
 fn main() {
-    let input = read_input("./input_test.txt");
-    let mut result : u64 = std::u64::MAX;
+    let input = read_input("./input.txt");
     let seeds: Vec<u64> = parse_seeds(&input[0]).expect("Valid parsed seeds").1;
+    let translators: HashMap<String, Translator> = parse_translators(&input);
+
+    let mut result = std::u64::MAX;
+    for i in (0..seeds.len()).step_by(2) {
+
+        let mapped : u64 = match process_seed_range_binary_search(seeds[i], seeds[i] + seeds[i+1], &translators) {
+            Ok(res) => res,
+            Err(s) => panic!("Error: {}", s)
+        };
+        result = std::cmp::min(mapped, result);
+    }
+    
+    println!("Lowest location number is: {}", result);
+}
+
+fn process_seed_range_binary_search(range_start: u64, range_end: u64, translators: &HashMap<String, Translator>) -> Result<u64, String> {
+    if range_start > range_end {
+        return Err("Start Range cannot be larger than end range".to_string());
+    }
+    let range_diff = range_end - range_start;
+    if range_diff == 0 {
+        return Ok(apply_translators(&range_start, translators));
+    }
+    let mapped_start = apply_translators(&range_start, translators);
+    let mapped_end = apply_translators(&range_end, translators);
+    let mapped_diff = if mapped_end > mapped_start {mapped_end - mapped_start} else {0};
+    if mapped_diff == range_diff {
+        return Ok(mapped_start);
+    }
+    let middle = (range_start + range_end) / 2;
+
+    std::cmp::min(
+        process_seed_range_binary_search(range_start, middle, translators),
+        process_seed_range_binary_search(middle+1, range_end, translators)
+    )
+}
+
+fn apply_translators(seed: &u64, translators: &HashMap<String, Translator>) -> u64 {
+    let translator_names = vec![
+        "seed-to-soil",
+        "soil-to-fertilizer",
+        "fertilizer-to-water",
+        "water-to-light",
+        "light-to-temperature",
+        "temperature-to-humidity",
+        "humidity-to-location"];
+    let mut result = *seed;
+    for translator_name in translator_names {
+        result = match translators.get(translator_name) {
+            Some(translator) => translator.translate(&result),
+            None => {
+                println!("Error No translator found for name {}", translator_name);
+                0
+            }
+        }
+    }
+    result
+}
+
+fn parse_translators(input_lines: &Vec<String>) -> HashMap<String, Translator> {
     let mut translators: HashMap<String, Translator> = HashMap::new();
     let mut current_translator: &mut Translator = &mut Translator::new();
-    for line_index in 1..input.len() {
-        let line = &input[line_index as usize];
+    for line_index in 1..input_lines.len() {
+        let line = &input_lines[line_index as usize];
         if line == "" {
             continue;
         }
@@ -72,34 +131,7 @@ fn main() {
         }
         current_translator.add_range(parse_range(&line).expect("A valid range").1);
     }
-    let translator_names = vec![
-        "seed-to-soil",
-        "soil-to-fertilizer",
-        "fertilizer-to-water",
-        "water-to-light",
-        "light-to-temperature",
-        "temperature-to-humidity",
-        "humidity-to-location"];
-    for seed in &seeds {
-        let mut mapped = *seed;
-        for translator_name in &translator_names {
-            mapped = apply_translator(mapped, &translators, translator_name.to_string());
-        }
-        result = std::cmp::min(result, mapped);
-        // println!("seed: {} mapped: {} result: {}", seed, mapped, result);
-    }
-    // println!("{:?}", translators);
-    println!("{}", result);
-}
-
-fn apply_translator(value: u64, translators: &HashMap<String, Translator>, translator_name: String) -> u64 {
-    match translators.get(&translator_name) {
-        Some(translator) => translator.translate(&value),
-        None => {
-            println!("Error No translator found for name {}", translator_name);
-            0
-        }
-    }
+    translators
 }
 
 fn parse_seeds(seed_string: &str) -> IResult<&str, Vec<u64>> {
@@ -167,5 +199,14 @@ mod tests {
         let seeds_string = "seeds: 79 14 55 13";
         let seeds = parse_seeds(seeds_string).expect("Some valid Seeds").1;
         assert_eq!(seeds, vec![79, 14, 55, 13]);
+    }
+
+    #[test]
+    fn test_seed_to_location() {
+        println!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/input.txt"));
+        
+        let input = read_input(concat!(env!("CARGO_MANIFEST_DIR"), "/src/input.txt"));
+        let translators: HashMap<String, Translator> = parse_translators(&input);
+        assert_eq!(apply_translators(&3281178213, &translators), 69323688);
     }
 }
