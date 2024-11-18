@@ -6,10 +6,8 @@ use std::cmp::Ord;
 use std::cmp::Ordering;
 use nom::{
   IResult,
-  character::complete::{not_line_ending, digit1, space1, alphanumeric1},
-  sequence::separated_pair,
+  character::complete::{space1, alphanumeric1},
   multi::separated_list1,
-  bytes::complete::tag,
 };
 
 fn read_input(filename: &str) -> Vec<String> {
@@ -22,7 +20,7 @@ fn read_input(filename: &str) -> Vec<String> {
     return result
 }
 
-const card_ordering: &'static [char] = &['J', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'Q', 'K', 'A'];
+const CARD_ORDERING: &'static [char] = &['J', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'Q', 'K', 'A'];
 
 #[derive(Default, Debug)]
 struct Hand {
@@ -43,8 +41,8 @@ impl Ord for Hand {
         if self.rank == other.rank {
             for i in 0..self.cards.len() {
                 if self.cards[i] != other.cards[i] {
-                    let self_position = card_ordering.iter().position(|n| *n == self.cards[i]);
-                    let other_position = card_ordering.iter().position(|n| *n == other.cards[i]);
+                    let self_position = CARD_ORDERING.iter().position(|n| *n == self.cards[i]);
+                    let other_position = CARD_ORDERING.iter().position(|n| *n == other.cards[i]);
                     if self_position > other_position {
                         return Ordering::Greater;
                     } else {
@@ -79,16 +77,22 @@ fn rank_hand(hand: &mut Hand) {
         hand.result = "5 of a kind".to_string();
     } else if is_x_of_a_kind(&binned_hand, 4) {
         hand.rank = 6;
+        hand.result = "4 of a kind".to_string();
     } else if is_full_house(&binned_hand) {
         hand.rank = 5;
+        hand.result = "Full House".to_string();
     } else if is_x_of_a_kind(&binned_hand, 3) {
         hand.rank = 4;
+        hand.result = "3 of a kind".to_string();
     } else if is_x_pairs(&binned_hand, 2) {
         hand.rank = 3;
+        hand.result = "2 pairs".to_string();
     } else if is_x_pairs(&binned_hand, 1) {
         hand.rank = 2;
+        hand.result = "1 pair".to_string();
     } else {
         hand.rank = 1;
+        hand.result = "Highest".to_string();
     }
 }
 
@@ -109,6 +113,9 @@ fn is_x_of_a_kind(binned_hand: &HashMap<char, i8>, expected_amount: i8) -> bool 
     let mut joker_amount: i8 = 0;
     if binned_hand.contains_key(&'J') {
         joker_amount = *binned_hand.get(&'J').unwrap();
+    }
+    if joker_amount == 5 {
+        return true;
     }
     for (card, amount) in binned_hand.into_iter() {
         if *card == 'J' {
@@ -198,7 +205,7 @@ fn main() {
 }
 
 fn parse_hand(hand_string: &str) -> IResult<&str, Hand> {
-    let (remainder, hand) = separated_list1(space1, alphanumeric1)(hand_string)
+    let (_, hand) = separated_list1(space1, alphanumeric1)(hand_string)
         .map(|parsed| {
             let cards_string = parsed.1[0];
             let bid = parsed.1[1];
@@ -235,6 +242,10 @@ mod tests {
 
     #[test]
     fn test_is_x_of_a_kind() {
+        let mut hand = parse_hand("JJJJJ 28").unwrap().1;
+        let mut binned_hand = bin_cards(&hand);
+        assert_eq!(is_x_of_a_kind(&binned_hand, 5), true);
+
         let mut hand = parse_hand("KKKKK 28").unwrap().1;
         let mut binned_hand = bin_cards(&hand);
         assert_eq!(is_x_of_a_kind(&binned_hand, 5), true);

@@ -4,12 +4,10 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::cmp::Ord;
 use std::cmp::Ordering;
+use nom::multi::separated_list1;
 use nom::{
   IResult,
-  character::complete::{not_line_ending, digit1, space1, alphanumeric1},
-  sequence::separated_pair,
-  multi::separated_list1,
-  bytes::complete::tag,
+  character::complete::{space1, alphanumeric1},
 };
 
 fn read_input(filename: &str) -> Vec<String> {
@@ -22,7 +20,7 @@ fn read_input(filename: &str) -> Vec<String> {
     return result
 }
 
-const card_ordering: &'static [char] = &['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+const CARD_ORDERING: &'static [char] = &['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
 
 #[derive(Default, Debug)]
 struct Hand {
@@ -42,8 +40,8 @@ impl Ord for Hand {
         if self.rank == other.rank {
             for i in 0..self.cards.len() {
                 if self.cards[i] != other.cards[i] {
-                    let self_position = card_ordering.iter().position(|n| *n == self.cards[i]);
-                    let other_position = card_ordering.iter().position(|n| *n == other.cards[i]);
+                    let self_position = CARD_ORDERING.iter().position(|n| *n == self.cards[i]);
+                    let other_position = CARD_ORDERING.iter().position(|n| *n == other.cards[i]);
                     if self_position > other_position {
                         return Ordering::Greater;
                     } else {
@@ -153,15 +151,12 @@ fn main() {
     for hand_index in 0..hands.len() {
         result = result + hands[hand_index].bid * (hand_index + 1) as u64;
     }
-    println!("{:?}", hands);
     println!("{:?}", result);
 }
 
 fn parse_hand(hand_string: &str) -> IResult<&str, Hand> {
-    println!("{:?}", hand_string);
-    let (remainder, hand) = separated_list1(space1, alphanumeric1)(hand_string)
+    let (_, hand) = separated_list1(space1, alphanumeric1)(hand_string)
         .map(|parsed| {
-            println!("{:?}", parsed);
             let cards_string = parsed.1[0];
             let bid = parsed.1[1];
             let mut cards: Vec<char> = Vec::new();
