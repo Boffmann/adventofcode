@@ -14,7 +14,7 @@ fn read_input(filename: &str) -> Vec<String> {
 
 
 fn main() {
-    let input = read_input("./input_1_test.txt");
+    let input = read_input("./input_1.txt");
     let mut result : u32 = 0;
     for line in input {
         result += extract_number(&line);
